@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
-import Gradient from 'ink-gradient';
-import BigText from 'ink-big-text';
 import Spinner from 'ink-spinner';
 import TextInput from 'ink-text-input';
+import chalk from 'chalk';
 import { authLogin, authLogout, authMe, cloudGetState } from './api/client.js';
 import { getBaseUrl, getUserEmail, setBaseUrl, setSessionCookie, setUserEmail } from './config.js';
 import { monthLabelFr, ymAdd, ymFromDate, type YM } from './lib/date.js';
@@ -50,6 +49,14 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
       {hint ? <Text color="gray">{hint}</Text> : null}
     </Box>
   );
+}
+
+function neonify(text: string) {
+  const palette = ['#00e5ff', '#ff4dff', '#7c4dff', '#00ff9d'];
+  return text
+    .split('')
+    .map((char, idx) => chalk.hex(palette[idx % palette.length] ?? '#00e5ff')(char))
+    .join('');
 }
 
 export function App() {
@@ -146,12 +153,8 @@ export function App() {
 
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1} gap={1}>
-      <Gradient name="atlas">
-        <BigText text="FRAIS" />
-      </Gradient>
-      <Gradient name="teen">
-        <Text>mensuels - neon CLI</Text>
-      </Gradient>
+      <Text>{neonify('FRAIS MENSUELS')}</Text>
+      <Text color="gray">neon CLI</Text>
 
       {screen === 'baseUrl' ? (
         <NeonFrame title="Connexion cloud">

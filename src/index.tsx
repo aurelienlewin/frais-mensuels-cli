@@ -18,6 +18,10 @@ async function run() {
     return;
   }
 
+  if (!process.stdin.isTTY) {
+    process.stdout.write('Interactive TUI requires a TTY. Run in a terminal.\n');
+    return;
+  }
   render(<App />);
 }
 

@@ -1,4 +1,4 @@
-import { dueDateIso, pad2, type YM } from '../lib/date';
+import { dueDateIso, pad2, type YM } from '../lib/date.js';
 import type {
   Account,
   AccountId,
