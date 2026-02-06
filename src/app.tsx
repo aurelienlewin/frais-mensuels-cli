@@ -59,11 +59,23 @@ function neonify(text: string) {
     .join('');
 }
 
-function headerArt() {
-  const title = 'FRAIS MENSUELS';
-  const bar = '━'.repeat(title.length + 4);
-  const lines = [`┏${bar}┓`, `┃  ${title}  ┃`, `┗${bar}┛`];
-  return lines.map((line) => neonify(line));
+function renderHeader() {
+  const badge = neonify('[FM]');
+  const label = chalk.gray('TABLEAU PRIVE');
+  const frais = neonify('Frais');
+  const mensuels = chalk.white('mensuels');
+  const tagline = chalk.gray('Synthese perso + coloc - Cloud + hors ligne');
+  return (
+    <Box flexDirection="column">
+      <Text>
+        {badge} {label}
+      </Text>
+      <Text>
+        {frais} {mensuels}
+      </Text>
+      <Text>{tagline}</Text>
+    </Box>
+  );
 }
 
 function padRight(text: string, width: number) {
@@ -482,11 +494,7 @@ export function App() {
 
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1} gap={1}>
-      <Box flexDirection="column">
-        {headerArt().map((line, idx) => (
-          <Text key={idx}>{line}</Text>
-        ))}
-      </Box>
+      {renderHeader()}
 
       {screen === 'baseUrl' ? (
         <NeonFrame title="Connexion cloud">
