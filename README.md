@@ -1,28 +1,31 @@
 # fraismensuels-cli
 
-Neon TUI client for the Frais mensuels webapp. Fast, keyboard-first, and synced with the same cloud data.
+Client TUI néon pour le webapp Frais mensuels. Rapide, clavier-first, et synchronisé avec les mêmes données cloud.
 
-## Resume rapide
+## Résumé rapide
 
-- Se connecte au meme backend que le webapp (`/api/auth/*`, `/api/state`).
-- Vue synthese + charges + enveloppes (budgets) + depenses.
-- Marquer une charge OK, ajouter une depense, sync cloud.
+- Se connecte au même backend que le webapp (`/api/auth/*`, `/api/state`).
+- Vue synthèse + charges + enveloppes (budgets) + dépenses.
+- Marquer une charge OK, ajouter une dépense, sync cloud.
 - Interface compacte avec micro-animations et navigation clavier.
 
-## Demarrer
+## Démarrer
 
 1) Installer
 - `npm install`
 
-2) Lancer
+2) Lancer (dev)
 - `npm run dev`
 
 3) Build
 - `npm run build`
 
+4) Exécuter (après build)
+- `node dist/index.js`
+
 ## Configuration
 
-- Base URL par defaut: `https://frais-mensuels.vercel.app`
+- Base URL par défaut: `https://frais-mensuels.vercel.app`
 - Override: `FRAISMENSUELS_BASE_URL=https://your-app-domain`
 
 ## Commandes
@@ -42,11 +45,11 @@ Neon TUI client for the Frais mensuels webapp. Fast, keyboard-first, and synced 
 - `q` : quitter
 
 <details>
-<summary>Flux de donnees</summary>
+<summary>Flux de données</summary>
 
-- Les donnees sont recuperees depuis `/api/state`.
-- Les modifications sont poussees avec le meme schema que le webapp.
-- La session est stockee localement (cookie) dans le config systeme.
+- Les données sont récupérées depuis `/api/state`.
+- Les modifications sont poussées avec le même schéma que le webapp.
+- La session est stockée localement (cookie) dans le config système.
 
 </details>
 
@@ -54,6 +57,6 @@ Neon TUI client for the Frais mensuels webapp. Fast, keyboard-first, and synced 
 <summary>Conseils TUI</summary>
 
 - Utiliser un vrai terminal (TTY) pour les touches.
-- Si l'ecran est petit, la liste des charges est paginee.
+- Si l'écran est petit, la liste des charges est paginée.
 
 </details>
