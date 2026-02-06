@@ -71,6 +71,11 @@ function padRight(text: string, width: number) {
   return text + ' '.repeat(width - text.length);
 }
 
+function getTerminalRows() {
+  const rows = typeof process.stdout?.rows === 'number' ? process.stdout.rows : 24;
+  return Math.max(12, rows);
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -690,38 +695,56 @@ export function App() {
 
             <Box flexDirection="column" gap={1} flexGrow={1}>
               <Text color="gray">Enveloppes ouvertes</Text>
-              {budgets.length === 0 ? (
-                <Text color="gray">Aucune enveloppe.</Text>
-              ) : (
-                budgets.map((b, idx) => {
-                  const remaining = b.remainingCents;
-                  const spent = b.spentCents;
-                  const isSelected = idx === expenseBudgetIdx;
-                  return (
-                    <Box key={b.id} borderStyle="single" borderColor={isSelected ? 'magentaBright' : 'gray'} paddingX={1}>
-                      <Box flexDirection="column" gap={0}>
-                        <Text color={isSelected ? 'magentaBright' : 'cyanBright'}>
-                          {b.name} - {formatEUR(b.amountCents)}
+              {(() => {
+                const rows = getTerminalRows();
+                const maxBudgetLines = Math.max(3, rows - 16);
+                const visibleBudgets = budgets.slice(0, maxBudgetLines);
+                const overflow = budgets.length - visibleBudgets.length;
+                return budgets.length === 0 ? (
+                  <Text color="gray">Aucune enveloppe.</Text>
+                ) : (
+                  <Box flexDirection="column" gap={0}>
+                    {visibleBudgets.map((b, idx) => {
+                      const remaining = b.remainingCents;
+                      const spent = b.spentCents;
+                      const isSelected = idx === expenseBudgetIdx;
+                      return (
+                        <Text key={b.id} color={isSelected ? 'magentaBright' : 'cyanBright'}>
+                          {isSelected ? '›' : ' '} {padRight(b.name, 18)} | Depense: {padRight(formatEUR(spent), 10)} | Reste:{' '}
+                          {padRight(formatEUR(remaining), 10)}
                         </Text>
-                        <Text color="gray">
-                          Depense: {formatEUR(spent)} | Reste: {formatEUR(remaining)}
+                      );
+                    })}
+                    {overflow > 0 ? (
+                      <Text color="gray">... +{overflow} autres enveloppes</Text>
+                    ) : null}
+                  </Box>
+                );
+              })()}
+
+              {(() => {
+                const selected = budgets[expenseBudgetIdx];
+                if (!selected) return null;
+                const rows = getTerminalRows();
+                const maxExpenseLines = Math.max(2, rows - 20);
+                const visibleExpenses = selected.expenses.slice(0, maxExpenseLines);
+                const overflow = selected.expenses.length - visibleExpenses.length;
+                return (
+                  <Box flexDirection="column" gap={0}>
+                    <Text color="gray">Depenses: {selected.name}</Text>
+                    {visibleExpenses.length ? (
+                      visibleExpenses.map((e) => (
+                        <Text key={e.id} color="gray">
+                          - {padRight(e.label, 18)} {padRight(formatEUR(e.amountCents), 10)} {e.date}
                         </Text>
-                        {b.expenses.length ? (
-                          <Box flexDirection="column">
-                            {b.expenses.slice(0, 3).map((e) => (
-                              <Text key={e.id} color="gray">
-                                - {e.label} ({formatEUR(e.amountCents)}) {e.date}
-                              </Text>
-                            ))}
-                          </Box>
-                        ) : (
-                          <Text color="gray">Aucune depense.</Text>
-                        )}
-                      </Box>
-                    </Box>
-                  );
-                })
-              )}
+                      ))
+                    ) : (
+                      <Text color="gray">Aucune depense.</Text>
+                    )}
+                    {overflow > 0 ? <Text color="gray">... +{overflow} autres depenses</Text> : null}
+                  </Box>
+                );
+              })()}
             </Box>
           </Box>
         </NeonFrame>
