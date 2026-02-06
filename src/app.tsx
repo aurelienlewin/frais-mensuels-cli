@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Text, useApp, useInput } from 'ink';
+import { Box, Text, useApp, useInput, useStdout } from 'ink';
 import Spinner from 'ink-spinner';
 import TextInput from 'ink-text-input';
 import chalk from 'chalk';
@@ -71,8 +71,8 @@ function padRight(text: string, width: number) {
   return text + ' '.repeat(width - text.length);
 }
 
-function getTerminalRows() {
-  const rows = typeof process.stdout?.rows === 'number' ? process.stdout.rows : 24;
+function getTerminalRows(stdout?: NodeJS.WriteStream | null) {
+  const rows = typeof stdout?.rows === 'number' ? stdout.rows : typeof process.stdout?.rows === 'number' ? process.stdout.rows : 24;
   return Math.max(12, rows);
 }
 
@@ -109,6 +109,7 @@ function uid(prefix = 'id') {
 
 export function App() {
   const { exit } = useApp();
+  const { stdout } = useStdout();
   const [screen, setScreen] = useState<Screen>('boot');
   const [loadState, setLoadState] = useState<LoadState>({ status: 'idle' });
   const [baseUrl, setBaseUrlState] = useState<string | null>(() => getBaseUrl());
@@ -129,6 +130,17 @@ export function App() {
   const [chargeMessage, setChargeMessage] = useState<string | null>(null);
   const [chargeFilter, setChargeFilter] = useState('');
   const [chargeFilterMode, setChargeFilterMode] = useState(false);
+  const [terminalRows, setTerminalRows] = useState(() => getTerminalRows(stdout));
+
+  useEffect(() => {
+    if (!stdout?.isTTY) return;
+    const update = () => setTerminalRows(getTerminalRows(stdout));
+    update();
+    stdout.on('resize', update);
+    return () => {
+      stdout.off('resize', update);
+    };
+  }, [stdout]);
 
   useEffect(() => {
     if (!baseUrl) {
@@ -696,7 +708,7 @@ export function App() {
             <Box flexDirection="column" gap={1} flexGrow={1}>
               <Text color="gray">Enveloppes ouvertes</Text>
               {(() => {
-                const rows = getTerminalRows();
+                const rows = terminalRows;
                 const maxBudgetLines = Math.max(3, rows - 16);
                 const visibleBudgets = budgets.slice(0, maxBudgetLines);
                 const overflow = budgets.length - visibleBudgets.length;
@@ -725,7 +737,7 @@ export function App() {
               {(() => {
                 const selected = budgets[expenseBudgetIdx];
                 if (!selected) return null;
-                const rows = getTerminalRows();
+                const rows = terminalRows;
                 const maxExpenseLines = Math.max(2, rows - 20);
                 const visibleExpenses = selected.expenses.slice(0, maxExpenseLines);
                 const overflow = selected.expenses.length - visibleExpenses.length;
