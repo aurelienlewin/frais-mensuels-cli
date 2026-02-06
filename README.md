@@ -23,6 +23,7 @@ Neon CLI client for the Frais Mensuels webapp.
 
 - `c` charges list
 - `e` add envelope expense
+- `space` mark charge OK (in charges view)
 - `r` sync
 - `l` logout
 - `q` quit

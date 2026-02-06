@@ -59,6 +59,20 @@ function neonify(text: string) {
     .join('');
 }
 
+function headerArt() {
+  const lines = [
+    '╔═╗╔═╗╔═╗╦╔═╗  ╔╦╗╔═╗╔╗╔╔═╗╦ ╦╔═╗╦  ╔═╗',
+    '╠╣ ╠╣ ╠═╣║╚═╗   ║ ╠═╣║║║╚═╗║ ║║╣ ║  ╚═╗',
+    '╚  ╚  ╩ ╩╩╚═╝   ╩ ╩ ╩╝╚╝╚═╝╚═╝╚═╝╩═╝╚═╝',
+  ];
+  return lines.map((line) => neonify(line));
+}
+
+function padRight(text: string, width: number) {
+  if (text.length >= width) return text.slice(0, width);
+  return text + ' '.repeat(width - text.length);
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -108,6 +122,8 @@ export function App() {
   const [expenseAmount, setExpenseAmount] = useState('');
   const [expenseDate, setExpenseDate] = useState('');
   const [expenseError, setExpenseError] = useState<string | null>(null);
+  const [chargeSelectedIdx, setChargeSelectedIdx] = useState(0);
+  const [chargeMessage, setChargeMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!baseUrl) {
@@ -210,6 +226,21 @@ export function App() {
         setExpenseError(null);
         setScreen('addExpense');
       }
+      if (input === ' ') {
+        void toggleChargePaid();
+        return;
+      }
+      if (key.upArrow) {
+        setChargeSelectedIdx((idx) => Math.max(0, idx - 1));
+        return;
+      }
+      if (key.downArrow) {
+        setChargeSelectedIdx((idx) => {
+          if (charges.length === 0) return 0;
+          return Math.min(charges.length - 1, idx + 1);
+        });
+        return;
+      }
       if (key.leftArrow) setCurrentYm((ym) => ymAdd(ym, -1));
       if (key.rightArrow) setCurrentYm((ym) => ymAdd(ym, 1));
       return;
@@ -261,6 +292,13 @@ export function App() {
       return Math.max(0, Math.min(idx, budgets.length - 1));
     });
   }, [budgets.length]);
+
+  useEffect(() => {
+    setChargeSelectedIdx((idx) => {
+      if (charges.length === 0) return 0;
+      return Math.max(0, Math.min(idx, charges.length - 1));
+    });
+  }, [charges.length]);
 
   const applyExpense = async () => {
     if (!appState) {
@@ -339,10 +377,54 @@ export function App() {
     }
   };
 
+  const toggleChargePaid = async () => {
+    if (!appState) return;
+    if (charges.length === 0) return;
+    const selected = charges[chargeSelectedIdx];
+    if (!selected) return;
+
+    const month = ensureMonth(appState, currentYm);
+    if (month.archived) {
+      setChargeMessage('Mois archive: modification bloquee');
+      return;
+    }
+
+    const prev = month.charges[selected.id] ?? {};
+    const nextPaid = !selected.paid;
+    const nextCharges = {
+      ...month.charges,
+      [selected.id]: { ...prev, paid: nextPaid },
+    };
+    const updatedAt = nowIso();
+    const nextMonth: MonthData = { ...month, charges: nextCharges, updatedAt };
+    const nextState: AppState = {
+      ...appState,
+      months: { ...appState.months, [currentYm]: nextMonth },
+      modifiedAt: updatedAt,
+    };
+
+    setLoadState({ status: 'loading', message: 'Mise a jour...' });
+    setScreen('loading');
+    try {
+      await cloudPutState(nextState, nextState.modifiedAt);
+      setAppState(normalizeState(nextState));
+      setLastSyncAt(new Date().toISOString());
+      setChargeMessage(nextPaid ? 'Charge marquee OK' : 'Charge marquee non payee');
+      setScreen('charges');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setLoadState({ status: 'error', error: msg });
+      setScreen('error');
+    }
+  };
+
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1} gap={1}>
-      <Text>{neonify('FRAIS MENSUELS')}</Text>
-      <Text color="gray">neon CLI</Text>
+      <Box flexDirection="column">
+        {headerArt().map((line, idx) => (
+          <Text key={idx}>{line}</Text>
+        ))}
+      </Box>
 
       {screen === 'baseUrl' ? (
         <NeonFrame title="Connexion cloud">
@@ -468,22 +550,30 @@ export function App() {
             {charges.length === 0 ? (
               <Text color="gray">Aucune charge pour ce mois.</Text>
             ) : (
-              <Box flexDirection="column" gap={0}>
-                {charges.map((c) => (
-                  <Box key={c.id} justifyContent="space-between">
-                    <Text color={c.paid ? 'greenBright' : 'yellowBright'}>
-                      {c.paid ? 'OK' : '..'} {c.name}
-                    </Text>
-                    <Text color="cyanBright">
-                      {formatEUR(c.amountCents)} ({formatEUR(c.myShareCents)})
-                    </Text>
-                  </Box>
-                ))}
+              <Box flexDirection="column" gap={1}>
+                <Box borderStyle="single" borderColor="gray" paddingX={1}>
+                  <Text color="gray">
+                    {padRight('OK', 3)}| {padRight('Nom', 24)}| {padRight('Montant', 12)}| {padRight('Ma part', 12)}| {padRight('Echeance', 10)}
+                  </Text>
+                </Box>
+                {charges.map((c, idx) => {
+                  const selected = idx === chargeSelectedIdx;
+                  const rowColor = selected ? 'magentaBright' : c.paid ? 'greenBright' : 'yellowBright';
+                  return (
+                    <Box key={c.id} borderStyle="single" borderColor={selected ? 'magentaBright' : 'gray'} paddingX={1}>
+                      <Text color={rowColor}>
+                        {padRight(c.paid ? 'OK' : '..', 3)}| {padRight(c.name, 24)}| {padRight(formatEUR(c.amountCents), 12)}|{' '}
+                        {padRight(formatEUR(c.myShareCents), 12)}| {padRight(c.dueDate, 10)}
+                      </Text>
+                    </Box>
+                  );
+                })}
               </Box>
             )}
+            {chargeMessage ? <Text color="cyanBright">{chargeMessage}</Text> : null}
           </NeonFrame>
           <Box justifyContent="space-between" paddingX={1}>
-            <Text color="gray">left/right mois - e depense - b retour - q quitter</Text>
+            <Text color="gray">up/down selection - espace OK - left/right mois - e depense - b retour - q quitter</Text>
             <Text color="gray">App: fraismensuels-cli</Text>
           </Box>
         </Box>
@@ -491,75 +581,115 @@ export function App() {
 
       {screen === 'addExpense' ? (
         <NeonFrame title="Nouvelle depense enveloppe">
-          {expenseStep === 'selectBudget' ? (
-            <Box flexDirection="column" gap={1}>
-              {budgets.length === 0 ? (
-                <Text color="gray">Aucune enveloppe active. Appuie sur q pour revenir.</Text>
-              ) : (
-                <Box flexDirection="column" gap={0}>
-                  {budgets.map((b, idx) => (
-                    <Text key={b.id} color={idx === expenseBudgetIdx ? 'magentaBright' : 'white'}>
-                      {idx === expenseBudgetIdx ? '›' : ' '} {b.name} - {formatEUR(b.amountCents)}
-                    </Text>
-                  ))}
+          <Box flexDirection="row" gap={2}>
+            <Box flexDirection="column" gap={1} width={50}>
+              {expenseStep === 'selectBudget' ? (
+                <Box flexDirection="column" gap={1}>
+                  {budgets.length === 0 ? (
+                    <Text color="gray">Aucune enveloppe active. Appuie sur q pour revenir.</Text>
+                  ) : (
+                    <Box flexDirection="column" gap={0}>
+                      {budgets.map((b, idx) => (
+                        <Text key={b.id} color={idx === expenseBudgetIdx ? 'magentaBright' : 'white'}>
+                          {idx === expenseBudgetIdx ? '›' : ' '} {b.name} - {formatEUR(b.amountCents)}
+                        </Text>
+                      ))}
+                    </Box>
+                  )}
+                  <Text color="gray">Fleches pour choisir, Enter pour valider, q pour annuler.</Text>
                 </Box>
+              ) : null}
+
+              {expenseStep === 'label' ? (
+                <Box flexDirection="column" gap={1}>
+                  <Text color="gray">Libelle de la depense</Text>
+                  <TextInput
+                    value={expenseLabel}
+                    onChange={setExpenseLabel}
+                    onSubmit={() => {
+                      if (!expenseLabel.trim()) {
+                        setExpenseError('Libelle obligatoire');
+                        return;
+                      }
+                      setExpenseError(null);
+                      setExpenseStep('amount');
+                    }}
+                    placeholder="Essence, courses..."
+                  />
+                </Box>
+              ) : null}
+
+              {expenseStep === 'amount' ? (
+                <Box flexDirection="column" gap={1}>
+                  <Text color="gray">Montant (EUR)</Text>
+                  <TextInput
+                    value={expenseAmount}
+                    onChange={setExpenseAmount}
+                    onSubmit={() => {
+                      const parsed = parseEuroAmount(expenseAmount);
+                      if (parsed == null || eurosToCents(parsed) <= 0) {
+                        setExpenseError('Montant invalide');
+                        return;
+                      }
+                      setExpenseError(null);
+                      setExpenseStep('date');
+                    }}
+                    placeholder="12.50"
+                  />
+                </Box>
+              ) : null}
+
+              {expenseStep === 'date' ? (
+                <Box flexDirection="column" gap={1}>
+                  <Text color="gray">Date (YYYY-MM-DD)</Text>
+                  <TextInput
+                    value={expenseDate}
+                    onChange={setExpenseDate}
+                    onSubmit={() => void applyExpense()}
+                    placeholder={todayIsoLocal()}
+                  />
+                </Box>
+              ) : null}
+
+              {expenseError ? <Text color="redBright">{expenseError}</Text> : null}
+            </Box>
+
+            <Box flexDirection="column" gap={1} flexGrow={1}>
+              <Text color="gray">Enveloppes ouvertes</Text>
+              {budgets.length === 0 ? (
+                <Text color="gray">Aucune enveloppe.</Text>
+              ) : (
+                budgets.map((b, idx) => {
+                  const remaining = b.remainingCents;
+                  const spent = b.spentCents;
+                  const isSelected = idx === expenseBudgetIdx;
+                  return (
+                    <Box key={b.id} borderStyle="single" borderColor={isSelected ? 'magentaBright' : 'gray'} paddingX={1}>
+                      <Box flexDirection="column" gap={0}>
+                        <Text color={isSelected ? 'magentaBright' : 'cyanBright'}>
+                          {b.name} - {formatEUR(b.amountCents)}
+                        </Text>
+                        <Text color="gray">
+                          Depense: {formatEUR(spent)} | Reste: {formatEUR(remaining)}
+                        </Text>
+                        {b.expenses.length ? (
+                          <Box flexDirection="column">
+                            {b.expenses.slice(0, 3).map((e) => (
+                              <Text key={e.id} color="gray">
+                                - {e.label} ({formatEUR(e.amountCents)}) {e.date}
+                              </Text>
+                            ))}
+                          </Box>
+                        ) : (
+                          <Text color="gray">Aucune depense.</Text>
+                        )}
+                      </Box>
+                    </Box>
+                  );
+                })
               )}
-              <Text color="gray">Fleches pour choisir, Enter pour valider, q pour annuler.</Text>
             </Box>
-          ) : null}
-
-          {expenseStep === 'label' ? (
-            <Box flexDirection="column" gap={1}>
-              <Text color="gray">Libelle de la depense</Text>
-              <TextInput
-                value={expenseLabel}
-                onChange={setExpenseLabel}
-                onSubmit={() => {
-                  if (!expenseLabel.trim()) {
-                    setExpenseError('Libelle obligatoire');
-                    return;
-                  }
-                  setExpenseError(null);
-                  setExpenseStep('amount');
-                }}
-                placeholder="Essence, courses..."
-              />
-            </Box>
-          ) : null}
-
-          {expenseStep === 'amount' ? (
-            <Box flexDirection="column" gap={1}>
-              <Text color="gray">Montant (EUR)</Text>
-              <TextInput
-                value={expenseAmount}
-                onChange={setExpenseAmount}
-                onSubmit={() => {
-                  const parsed = parseEuroAmount(expenseAmount);
-                  if (parsed == null || eurosToCents(parsed) <= 0) {
-                    setExpenseError('Montant invalide');
-                    return;
-                  }
-                  setExpenseError(null);
-                  setExpenseStep('date');
-                }}
-                placeholder="12.50"
-              />
-            </Box>
-          ) : null}
-
-          {expenseStep === 'date' ? (
-            <Box flexDirection="column" gap={1}>
-              <Text color="gray">Date (YYYY-MM-DD)</Text>
-              <TextInput
-                value={expenseDate}
-                onChange={setExpenseDate}
-                onSubmit={() => void applyExpense()}
-                placeholder={todayIsoLocal()}
-              />
-            </Box>
-          ) : null}
-
-          {expenseError ? <Text color="redBright">{expenseError}</Text> : null}
+          </Box>
         </NeonFrame>
       ) : null}
     </Box>
