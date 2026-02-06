@@ -329,7 +329,7 @@ export function App() {
   }, [charges, chargeFilter]);
 
   const chargePageSize = useMemo(() => {
-    const base = terminalRows - (chargeFilterMode ? 14 : 11);
+    const base = terminalRows - (chargeFilterMode ? 10 : 8);
     return Math.max(4, base);
   }, [terminalRows, chargeFilterMode]);
 
@@ -630,25 +630,31 @@ export function App() {
             {filteredCharges.length === 0 ? (
               <Text color="gray">Aucune charge pour ce mois.</Text>
             ) : (
-              <Box flexDirection="column" gap={1}>
-                <Box borderStyle="single" borderColor="gray" paddingX={1}>
-                  <Text color="gray">
-                    {padRight('OK', 3)}| {padRight('Nom', 24)}| {padRight('Montant', 12)}| {padRight('Ma part', 12)}| {padRight('Echeance', 10)}
-                  </Text>
-                </Box>
-                {filteredCharges.slice(chargeScrollOffset, chargeScrollOffset + chargePageSize).map((c, idx) => {
-                  const absoluteIdx = chargeScrollOffset + idx;
-                  const selected = absoluteIdx === chargeSelectedIdx;
-                  const rowColor = selected ? 'magentaBright' : c.paid ? 'greenBright' : 'yellowBright';
+              <Box flexDirection="column" gap={0}>
+                {(() => {
+                  const headerLine = `${padRight('OK', 3)}| ${padRight('Nom', 24)}| ${padRight('Montant', 12)}| ${padRight('Ma part', 12)}| ${padRight('Echeance', 10)}`;
+                  const separator = '─'.repeat(headerLine.length);
                   return (
-                    <Box key={c.id} borderStyle="single" borderColor={selected ? 'magentaBright' : 'gray'} paddingX={1}>
-                      <Text color={rowColor}>
-                        {padRight(c.paid ? 'OK' : '..', 3)}| {padRight(c.name, 24)}| {padRight(formatEUR(c.amountCents), 12)}|{' '}
-                        {padRight(formatEUR(c.myShareCents), 12)}| {padRight(c.dueDate, 10)}
-                      </Text>
+                    <Box borderStyle="round" borderColor="gray" paddingX={1} flexDirection="column">
+                      <Text color="gray">{headerLine}</Text>
+                      <Text color="gray">{separator}</Text>
+                      {filteredCharges.slice(chargeScrollOffset, chargeScrollOffset + chargePageSize).map((c, idx) => {
+                        const absoluteIdx = chargeScrollOffset + idx;
+                        const selected = absoluteIdx === chargeSelectedIdx;
+                        const rowColor = selected ? 'magentaBright' : c.paid ? 'greenBright' : 'yellowBright';
+                        const row = `${padRight(c.paid ? 'OK' : '..', 3)}| ${padRight(c.name, 24)}| ${padRight(
+                          formatEUR(c.amountCents),
+                          12,
+                        )}| ${padRight(formatEUR(c.myShareCents), 12)}| ${padRight(c.dueDate, 10)}`;
+                        return (
+                          <Text key={c.id} color={rowColor} backgroundColor={selected ? 'black' : undefined}>
+                            {row}
+                          </Text>
+                        );
+                      })}
                     </Box>
                   );
-                })}
+                })()}
                 <Text color="gray">
                   Affichage {Math.min(filteredCharges.length, chargeScrollOffset + 1)}-
                   {Math.min(filteredCharges.length, chargeScrollOffset + chargePageSize)} / {filteredCharges.length}
