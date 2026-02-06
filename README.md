@@ -18,3 +18,11 @@ Neon CLI client for the Frais Mensuels webapp.
 
 - `fraismensuels` — launch interactive TUI
 - `fraismensuels logout` — clear session
+
+## Hotkeys
+
+- `c` charges list
+- `e` add envelope expense
+- `r` sync
+- `l` logout
+- `q` quit

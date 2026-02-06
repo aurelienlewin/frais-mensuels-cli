@@ -107,3 +107,12 @@ export async function cloudGetState(): Promise<CloudStateRecord | null> {
   const body = await api<ApiOk<{ record: CloudStateRecord | null }>>('/api/state', { method: 'GET' });
   return body.record;
 }
+
+export async function cloudPutState(state: unknown, modifiedAt?: string): Promise<{ modifiedAt: string; updatedAt: string }> {
+  const body = await api<ApiOk<{ record: { modifiedAt: string; updatedAt: string } }>>('/api/state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ state, modifiedAt }),
+  });
+  return body.record;
+}
