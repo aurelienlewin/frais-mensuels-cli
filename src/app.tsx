@@ -130,6 +130,7 @@ export function App() {
   const [chargeMessage, setChargeMessage] = useState<string | null>(null);
   const [chargeFilter, setChargeFilter] = useState('');
   const [chargeFilterMode, setChargeFilterMode] = useState(false);
+  const [chargeScrollOffset, setChargeScrollOffset] = useState(0);
   const [terminalRows, setTerminalRows] = useState(() => getTerminalRows(stdout));
 
   useEffect(() => {
@@ -249,6 +250,14 @@ export function App() {
         setExpenseError(null);
         setScreen('addExpense');
       }
+      if (input === 'n') {
+        setChargeSelectedIdx((idx) => Math.min(filteredCharges.length - 1, idx + chargePageSize));
+        return;
+      }
+      if (input === 'p') {
+        setChargeSelectedIdx((idx) => Math.max(0, idx - chargePageSize));
+        return;
+      }
       if (input === 'f' || input === '/') {
         setChargeFilterMode(true);
         return;
@@ -319,6 +328,11 @@ export function App() {
     return charges.filter((c) => c.name.toLowerCase().includes(q));
   }, [charges, chargeFilter]);
 
+  const chargePageSize = useMemo(() => {
+    const base = terminalRows - (chargeFilterMode ? 14 : 11);
+    return Math.max(4, base);
+  }, [terminalRows, chargeFilterMode]);
+
   useEffect(() => {
     setExpenseBudgetIdx((idx) => {
       if (budgets.length === 0) return 0;
@@ -332,6 +346,21 @@ export function App() {
       return Math.max(0, Math.min(idx, filteredCharges.length - 1));
     });
   }, [filteredCharges.length]);
+
+  useEffect(() => {
+    setChargeScrollOffset((offset) => {
+      const maxOffset = Math.max(0, filteredCharges.length - chargePageSize);
+      return Math.min(offset, maxOffset);
+    });
+  }, [filteredCharges.length, chargePageSize]);
+
+  useEffect(() => {
+    setChargeScrollOffset((offset) => {
+      if (chargeSelectedIdx < offset) return chargeSelectedIdx;
+      if (chargeSelectedIdx >= offset + chargePageSize) return Math.max(0, chargeSelectedIdx - chargePageSize + 1);
+      return offset;
+    });
+  }, [chargeSelectedIdx, chargePageSize]);
 
   const applyExpense = async () => {
     if (!appState) {
@@ -607,8 +636,9 @@ export function App() {
                     {padRight('OK', 3)}| {padRight('Nom', 24)}| {padRight('Montant', 12)}| {padRight('Ma part', 12)}| {padRight('Echeance', 10)}
                   </Text>
                 </Box>
-                {filteredCharges.map((c, idx) => {
-                  const selected = idx === chargeSelectedIdx;
+                {filteredCharges.slice(chargeScrollOffset, chargeScrollOffset + chargePageSize).map((c, idx) => {
+                  const absoluteIdx = chargeScrollOffset + idx;
+                  const selected = absoluteIdx === chargeSelectedIdx;
                   const rowColor = selected ? 'magentaBright' : c.paid ? 'greenBright' : 'yellowBright';
                   return (
                     <Box key={c.id} borderStyle="single" borderColor={selected ? 'magentaBright' : 'gray'} paddingX={1}>
@@ -619,12 +649,16 @@ export function App() {
                     </Box>
                   );
                 })}
+                <Text color="gray">
+                  Affichage {Math.min(filteredCharges.length, chargeScrollOffset + 1)}-
+                  {Math.min(filteredCharges.length, chargeScrollOffset + chargePageSize)} / {filteredCharges.length}
+                </Text>
               </Box>
             )}
             {chargeMessage ? <Text color="cyanBright">{chargeMessage}</Text> : null}
           </NeonFrame>
           <Box justifyContent="space-between" paddingX={1}>
-            <Text color="gray">up/down selection - espace OK - left/right mois - e depense - b retour - q quitter</Text>
+            <Text color="gray">up/down selection - n/p page - f filtre - espace OK - left/right mois - e depense - b retour - q quitter</Text>
             <Text color="gray">App: fraismensuels-cli</Text>
           </Box>
         </Box>
