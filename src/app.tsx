@@ -60,11 +60,9 @@ function neonify(text: string) {
 }
 
 function headerArt() {
-  const lines = [
-    '╔═╗╔═╗╔═╗╦╔═╗  ╔╦╗╔═╗╔╗╔╔═╗╦ ╦╔═╗╦  ╔═╗',
-    '╠╣ ╠╣ ╠═╣║╚═╗   ║ ╠═╣║║║╚═╗║ ║║╣ ║  ╚═╗',
-    '╚  ╚  ╩ ╩╩╚═╝   ╩ ╩ ╩╝╚╝╚═╝╚═╝╚═╝╩═╝╚═╝',
-  ];
+  const title = 'FRAIS MENSUELS';
+  const bar = '━'.repeat(title.length + 4);
+  const lines = [`┏${bar}┓`, `┃  ${title}  ┃`, `┗${bar}┛`];
   return lines.map((line) => neonify(line));
 }
 
@@ -124,6 +122,8 @@ export function App() {
   const [expenseError, setExpenseError] = useState<string | null>(null);
   const [chargeSelectedIdx, setChargeSelectedIdx] = useState(0);
   const [chargeMessage, setChargeMessage] = useState<string | null>(null);
+  const [chargeFilter, setChargeFilter] = useState('');
+  const [chargeFilterMode, setChargeFilterMode] = useState(false);
 
   useEffect(() => {
     if (!baseUrl) {
@@ -162,7 +162,7 @@ export function App() {
   useEffect(() => {
     if (!process.stdout.isTTY) return;
     process.stdout.write('\x1b[2J\x1b[3J\x1b[H');
-  }, [screen, expenseStep, loginStep]);
+  }, [screen, expenseStep, loginStep, chargeFilterMode]);
 
   const refreshState = async (message = 'Chargement...') => {
     setScreen('loading');
@@ -215,6 +215,12 @@ export function App() {
     }
 
     if (screen === 'charges') {
+      if (chargeFilterMode) {
+        if (key.escape) {
+          setChargeFilterMode(false);
+        }
+        return;
+      }
       if (input === 'q') exit();
       if (input === 'b') setScreen('summary');
       if (input === 'e') {
@@ -226,6 +232,10 @@ export function App() {
         setExpenseError(null);
         setScreen('addExpense');
       }
+      if (input === 'f' || input === '/') {
+        setChargeFilterMode(true);
+        return;
+      }
       if (input === ' ') {
         void toggleChargePaid();
         return;
@@ -236,8 +246,8 @@ export function App() {
       }
       if (key.downArrow) {
         setChargeSelectedIdx((idx) => {
-          if (charges.length === 0) return 0;
-          return Math.min(charges.length - 1, idx + 1);
+          if (filteredCharges.length === 0) return 0;
+          return Math.min(filteredCharges.length - 1, idx + 1);
         });
         return;
       }
@@ -286,6 +296,12 @@ export function App() {
     return chargesForMonth(appState, currentYm);
   }, [appState, currentYm]);
 
+  const filteredCharges = useMemo(() => {
+    const q = chargeFilter.trim().toLowerCase();
+    if (!q) return charges;
+    return charges.filter((c) => c.name.toLowerCase().includes(q));
+  }, [charges, chargeFilter]);
+
   useEffect(() => {
     setExpenseBudgetIdx((idx) => {
       if (budgets.length === 0) return 0;
@@ -295,10 +311,10 @@ export function App() {
 
   useEffect(() => {
     setChargeSelectedIdx((idx) => {
-      if (charges.length === 0) return 0;
-      return Math.max(0, Math.min(idx, charges.length - 1));
+      if (filteredCharges.length === 0) return 0;
+      return Math.max(0, Math.min(idx, filteredCharges.length - 1));
     });
-  }, [charges.length]);
+  }, [filteredCharges.length]);
 
   const applyExpense = async () => {
     if (!appState) {
@@ -379,8 +395,8 @@ export function App() {
 
   const toggleChargePaid = async () => {
     if (!appState) return;
-    if (charges.length === 0) return;
-    const selected = charges[chargeSelectedIdx];
+    if (filteredCharges.length === 0) return;
+    const selected = filteredCharges[chargeSelectedIdx];
     if (!selected) return;
 
     const month = ensureMonth(appState, currentYm);
@@ -547,7 +563,25 @@ export function App() {
       {screen === 'charges' ? (
         <Box flexDirection="column" gap={1}>
           <NeonFrame title={`Charges - ${monthLabelFr(currentYm)}`}>
-            {charges.length === 0 ? (
+            <Box justifyContent="space-between">
+              <Text color="gray">Filtre: {chargeFilter.trim() ? chargeFilter : 'aucun'}</Text>
+              <Text color="gray">
+                {filteredCharges.length}/{charges.length}
+              </Text>
+            </Box>
+            {chargeFilterMode ? (
+              <Box flexDirection="column" gap={1}>
+                <Text color="gray">Recherche par nom</Text>
+                <TextInput
+                  value={chargeFilter}
+                  onChange={setChargeFilter}
+                  onSubmit={() => setChargeFilterMode(false)}
+                  placeholder="ex: loyer"
+                />
+                <Text color="gray">Enter pour valider, Esc pour annuler.</Text>
+              </Box>
+            ) : null}
+            {filteredCharges.length === 0 ? (
               <Text color="gray">Aucune charge pour ce mois.</Text>
             ) : (
               <Box flexDirection="column" gap={1}>
@@ -556,7 +590,7 @@ export function App() {
                     {padRight('OK', 3)}| {padRight('Nom', 24)}| {padRight('Montant', 12)}| {padRight('Ma part', 12)}| {padRight('Echeance', 10)}
                   </Text>
                 </Box>
-                {charges.map((c, idx) => {
+                {filteredCharges.map((c, idx) => {
                   const selected = idx === chargeSelectedIdx;
                   const rowColor = selected ? 'magentaBright' : c.paid ? 'greenBright' : 'yellowBright';
                   return (
