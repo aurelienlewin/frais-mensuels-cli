@@ -7,8 +7,9 @@ Neon CLI client for the Frais Mensuels webapp.
 1) Install deps
 - `npm install`
 
-2) Configure base URL (required)
-- `FRAISMENSUELS_BASE_URL=https://your-app-domain`
+2) Configure base URL (optional)
+- Default: `https://frais-mensuels.vercel.app`
+- Override: `FRAISMENSUELS_BASE_URL=https://your-app-domain`
 
 3) Run
 - `npm run dev`

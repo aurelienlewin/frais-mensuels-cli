@@ -10,15 +10,27 @@ const config = new Conf<CliConfig>({
   projectName: 'fraismensuels-cli',
 });
 
+const DEFAULT_BASE_URL = 'https://frais-mensuels.vercel.app';
+
+function normalizeBaseUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed.replace(/\/+$/g, '');
+  return `https://${trimmed.replace(/\/+$/g, '')}`;
+}
+
 export function getBaseUrl(): string | null {
   const env = process.env.FRAISMENSUELS_BASE_URL;
-  if (env && env.trim()) return env.trim().replace(/\/+$/g, '');
+  if (env && env.trim()) return normalizeBaseUrl(env);
   const stored = config.get('baseUrl');
-  return stored ? stored.replace(/\/+$/g, '') : null;
+  if (stored) return normalizeBaseUrl(stored);
+  return DEFAULT_BASE_URL;
 }
 
 export function setBaseUrl(url: string) {
-  config.set('baseUrl', url.replace(/\/+$/g, ''));
+  const normalized = normalizeBaseUrl(url);
+  if (!normalized) return;
+  config.set('baseUrl', normalized);
 }
 
 export function getSessionCookie(): string | null {
