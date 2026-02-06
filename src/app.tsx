@@ -51,32 +51,15 @@ function StatCard({ label, value, hint }: { label: string; value: string; hint?:
   );
 }
 
-function neonify(text: string) {
-  const palette = ['#00e5ff', '#ff4dff', '#7c4dff', '#00ff9d'];
+function neonify(text: string, palette: string[] = ['#00e5ff', '#ff4dff', '#7c4dff', '#00ff9d']) {
   return text
     .split('')
     .map((char, idx) => chalk.hex(palette[idx % palette.length] ?? '#00e5ff')(char))
     .join('');
 }
 
-function renderHeader() {
-  const badge = neonify('[FM]');
-  const label = chalk.gray('TABLEAU PRIVE');
-  const frais = neonify('Frais');
-  const mensuels = chalk.white('mensuels');
-  const tagline = chalk.gray('Synthese perso + coloc - Cloud + hors ligne');
-  return (
-    <Box flexDirection="column">
-      <Text>
-        {badge} {label}
-      </Text>
-      <Text>
-        {frais} {mensuels}
-      </Text>
-      <Text>{tagline}</Text>
-    </Box>
-  );
-}
+const PALETTE_A = ['#00e5ff', '#7c4dff', '#ff4dff', '#00ff9d'];
+const PALETTE_B = ['#67e8f9', '#fbbf24', '#c084fc', '#34d399'];
 
 function padRight(text: string, width: number) {
   if (text.length >= width) return text.slice(0, width);
@@ -144,6 +127,7 @@ export function App() {
   const [chargeFilterMode, setChargeFilterMode] = useState(false);
   const [chargeScrollOffset, setChargeScrollOffset] = useState(0);
   const [terminalRows, setTerminalRows] = useState(() => getTerminalRows(stdout));
+  const headerPulse = usePulse(900);
 
   useEffect(() => {
     if (!stdout?.isTTY) return;
@@ -494,7 +478,12 @@ export function App() {
 
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1} gap={1}>
-      {renderHeader()}
+      <Box flexDirection="column">
+        <Text>{headerPulse ? neonify('◆ FM ◆', PALETTE_A) : neonify('◇ FM ◇', PALETTE_B)}</Text>
+        <Text>
+          {headerPulse ? neonify('Frais', PALETTE_B) : neonify('Frais', PALETTE_A)} {chalk.white('mensuels')}
+        </Text>
+      </Box>
 
       {screen === 'baseUrl' ? (
         <NeonFrame title="Connexion cloud">
