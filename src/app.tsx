@@ -19,17 +19,8 @@ type LoadState = {
   error?: string;
 };
 
-function usePulse(periodMs = 700) {
-  const [on, setOn] = useState(false);
-  useEffect(() => {
-    const id = setInterval(() => setOn((v) => !v), periodMs);
-    return () => clearInterval(id);
-  }, [periodMs]);
-  return on;
-}
-
 function NeonFrame({ title, children }: { title: string; children: React.ReactNode }) {
-  const pulse = usePulse(900);
+  const pulse = useEasedPulse(2200, 12);
   const borderColor = pulse ? 'magentaBright' : 'cyanBright';
   return (
     <Box borderStyle="round" borderColor={borderColor} paddingX={2} paddingY={1} flexDirection="column" gap={1}>
@@ -58,8 +49,69 @@ function neonify(text: string, palette: string[] = ['#00e5ff', '#ff4dff', '#7c4d
     .join('');
 }
 
+function hexToRgb(hex: string) {
+  const h = hex.replace('#', '').trim();
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const num = Number.parseInt(full, 16);
+  return {
+    r: (num >> 16) & 255,
+    g: (num >> 8) & 255,
+    b: num & 255,
+  };
+}
+
+function rgbToHex(r: number, g: number, b: number) {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  const toHex = (n: number) => clamp(n).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function blendHex(a: string, b: string, t: number) {
+  const ca = hexToRgb(a);
+  const cb = hexToRgb(b);
+  const lerp = (x: number, y: number) => x + (y - x) * t;
+  return rgbToHex(lerp(ca.r, cb.r), lerp(ca.g, cb.g), lerp(ca.b, cb.b));
+}
+
+function neonifyBlend(text: string, paletteA: string[], paletteB: string[], t: number) {
+  return text
+    .split('')
+    .map((char, idx) => {
+      const a = paletteA[idx % paletteA.length] ?? '#00e5ff';
+      const b = paletteB[idx % paletteB.length] ?? '#ff4dff';
+      return chalk.hex(blendHex(a, b, t))(char);
+    })
+    .join('');
+}
+
+function useEasedPulse(periodMs = 2200, fps = 20) {
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    const start = Date.now();
+    const interval = Math.max(1, Math.floor(1000 / fps));
+    const id = setInterval(() => {
+      const elapsed = (Date.now() - start) % periodMs;
+      setPhase(elapsed / periodMs);
+    }, interval);
+    return () => clearInterval(id);
+  }, [periodMs, fps]);
+  return 0.5 - 0.5 * Math.cos(2 * Math.PI * phase);
+}
+
 const PALETTE_A = ['#00e5ff', '#7c4dff', '#ff4dff', '#00ff9d'];
 const PALETTE_B = ['#67e8f9', '#fbbf24', '#c084fc', '#34d399'];
+
+const Header = React.memo(function Header() {
+  const pulse = useEasedPulse(2600, 12);
+  return (
+    <Box flexDirection="column">
+      <Text>{neonifyBlend('<<< FM >>>', PALETTE_A, PALETTE_B, pulse)}</Text>
+      <Text>
+        {neonifyBlend('Frais', PALETTE_B, PALETTE_A, pulse)} {chalk.white('mensuels')}
+      </Text>
+    </Box>
+  );
+});
 
 function padRight(text: string, width: number) {
   if (text.length >= width) return text.slice(0, width);
@@ -127,7 +179,6 @@ export function App() {
   const [chargeFilterMode, setChargeFilterMode] = useState(false);
   const [chargeScrollOffset, setChargeScrollOffset] = useState(0);
   const [terminalRows, setTerminalRows] = useState(() => getTerminalRows(stdout));
-  const headerPulse = usePulse(900);
 
   useEffect(() => {
     if (!stdout?.isTTY) return;
@@ -478,12 +529,7 @@ export function App() {
 
   return (
     <Box flexDirection="column" paddingX={2} paddingY={1} gap={1}>
-      <Box flexDirection="column">
-        <Text>{headerPulse ? neonify('◆ FM ◆', PALETTE_A) : neonify('◇ FM ◇', PALETTE_B)}</Text>
-        <Text>
-          {headerPulse ? neonify('Frais', PALETTE_B) : neonify('Frais', PALETTE_A)} {chalk.white('mensuels')}
-        </Text>
-      </Box>
+      <Header />
 
       {screen === 'baseUrl' ? (
         <NeonFrame title="Connexion cloud">
